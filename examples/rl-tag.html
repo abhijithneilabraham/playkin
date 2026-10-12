@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "playkin": "../src/index.js", "playkin/rl": "../src/rl/index.js" } }</script>
+<title>playkin: dog learns tag</title></head><body>
+<div class="hud">
+  <h1>Teach a dog to play tag</h1>
+  <p>The dog starts knowing nothing. Press Train and it learns, by trial and error (Q-learning), to corner the cat. Turn on self-play and the cat learns to escape at the same time, against a pool of its past selves.</p>
+  <div class="row"><button id="train">Train 2,000 rounds</button><button id="sp" aria-pressed="false">Self-play</button><button id="soft" aria-pressed="false">Soft-Q brain</button><button id="reset">Forget</button></div>
+  <div class="row"><span>Rounds <span class="stat" id="ep">0</span></span><span>Catch rate <span class="stat" id="rate">–</span></span></div>
+  <canvas id="curve" width="380" height="90"></canvas>
+  <div class="row"><a href="./">Examples</a></div>
+</div>
+<script type="module">
+import { stage } from './stage.js';
+import { createCharacter } from 'playkin';
+import { GridChaseEnv, QLearning, SoftQ, train, selfPlay, gridActionToMove } from 'playkin/rl';
+const { THREE, scene, camera, loop } = stage({ ground: 40 });
+const env = new GridChaseEnv({ width: 9, height: 9, seed: 4, fixedMap: true, maxSteps: 50 });
+const T = 1.6, ox = -(env.width - 1) * T / 2, oz = -(env.height - 1) * T / 2, at = (x, y) => new THREE.Vector3(ox + x * T, 0, oz + y * T);
+let dogBrain, catBrain, curve = [], rounds = 0;
+const make = () => document.getElementById('soft').getAttribute('aria-pressed') === 'true'
+  ? new SoftQ({ nActions: 5, temperature: 0.08, minTemperature: 0.01, decayEpisodes: 4000 }) : new QLearning({ nActions: 5, epsilon: { start: 0.5, end: 0.03, episodes: 4000 } });
+function forget() { dogBrain = make(); catBrain = make(); env.opponent = null; curve = []; rounds = 0; draw(); }
+// the arena
+env.reset();
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x8a7f6e, roughness: 0.9 }), floorMat = new THREE.MeshStandardMaterial({ color: 0x9cc57f, roughness: 1 });
+for (let y = 0; y < env.height; y++) for (let x = 0; x < env.width; x++) {
+  const tile = new THREE.Mesh(new THREE.BoxGeometry(T * 0.96, 0.1, T * 0.96), floorMat); tile.position.copy(at(x, y)); tile.position.y = 0.05; tile.receiveShadow = true; scene.add(tile);
+  if (env.walls[y * env.width + x]) { const w = new THREE.Mesh(new THREE.BoxGeometry(T, 1.2, T), wallMat); w.position.copy(at(x, y)); w.position.y = 0.6; w.castShadow = w.receiveShadow = true; scene.add(w); }
+}
+const dog = createCharacter('dog'), cat = createCharacter('cat'); scene.add(dog.object3d, cat.object3d);
+camera.position.set(0, 13, 11); camera.lookAt(0, 0, 0);
+function rate(n = 200) { let c = 0; for (let i = 0; i < n; i++) { let o = env.reset(), d = false, info; while (!d) { const r = env.step(dogBrain.act(o, { explore: false })); o = r.obs; d = r.done; info = r.info; } c += info.caught; } return c / n; }
+function draw() {
+  document.getElementById('ep').textContent = rounds;
+  document.getElementById('rate').textContent = curve.length ? Math.round(curve[curve.length - 1] * 100) + '%' : '–';
+  const g = document.getElementById('curve').getContext('2d'); g.clearRect(0, 0, 380, 90); g.strokeStyle = 'rgba(255,255,255,.15)'; g.strokeRect(0.5, 0.5, 379, 89);
+  g.strokeStyle = '#ffb84d'; g.lineWidth = 2; g.beginPath(); curve.forEach((v, i) => { const x = 4 + i / Math.max(1, curve.length - 1) * 372, y = 86 - v * 82; i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+}
+document.getElementById('train').onclick = () => {
+  const sp = document.getElementById('sp').getAttribute('aria-pressed') === 'true';
+  for (let k = 0; k < 10; k++) {
+    if (sp) { selfPlay(env, { chaser: dogBrain, runner: catBrain }, { episodes: 200, snapshotEvery: 100 }); env.opponent = catBrain; env.learner = 'chaser'; }
+    else { env.opponent = null; train(env, dogBrain, { episodes: 200 }); }
+    rounds += 200; env.opponent = sp ? catBrain : null; curve.push(rate()); }
+  draw(); startShow();
+};
+for (const id of ['sp', 'soft']) document.getElementById(id).onclick = e => { const b = e.currentTarget; b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); if (id === 'soft') forget(); };
+document.getElementById('reset').onclick = forget;
+// watch a round play out with the current brains
+let show = null;
+function startShow() { const o = env.reset(); show = { obs: o, t: 0, dogFrom: at(...env.pos.chaser), catFrom: at(...env.pos.runner) }; dog.position.copy(show.dogFrom); cat.position.copy(show.catFrom); }
+loop(dt => {
+  if (show) {
+    show.t += dt / 0.35;
+    const s = env.state(), dTo = at(...s.chaser), cTo = at(...s.runner);
+    for (const [c, from, to] of [[dog, show.dogFrom, dTo], [cat, show.catFrom, cTo]]) { const k = Math.min(1, show.t), p = from.clone().lerp(to, k), d = to.clone().sub(c.position);
+      if (d.length() > 0.01) c.move(d.x, d.z, dt, { run: true }); c.position.copy(p); c.update(dt); }
+    if (show.t >= 1) {
+      show.dogFrom = dTo; show.catFrom = cTo; show.t = 0;
+      if (show.done) { if (show.info.caught) { dog.emote('jump'); cat.knockDown(1.2); } setTimeout(startShow, 1400); show = null; return; }
+      const r = env.step(dogBrain.act(show.obs, { explore: false })); show.obs = r.obs; show.done = r.done; show.info = r.info;
+    }
+  } else { dog.update(dt); cat.update(dt); }
+});
+forget(); startShow();
+</script></body></html>

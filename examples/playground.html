@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "playkin": "../src/index.js", "playkin/rl": "../src/rl/index.js" } }</script>
+<title>playkin playground</title></head><body>
+<div class="hud">
+  <h1>playkin playground</h1>
+  <p><kbd>WASD</kbd> walk, <kbd>Shift</kbd> run, <kbd>Space</kbd> jump, <kbd>E</kbd> wave, drag to look. The dog follows you, the cat runs from you, the knight patrols, the zombie chases slowly, the villagers wander.</p>
+  <div class="row"><a href="./">Examples</a></div>
+</div>
+<script type="module">
+import { stage } from './stage.js';
+import { createCharacter, thirdPerson } from 'playkin';
+import { follow, flee, patrol, chase, wander } from 'playkin/rl';
+const { THREE, scene, camera, renderer, loop } = stage();
+// a few rocks and trees to walk around
+const rocks = [];
+for (let i = 0; i < 30; i++) { const a = i * 2.4, r = 8 + (i * 7.3) % 30, x = Math.cos(a) * r, z = Math.sin(a) * r;
+  const tree = new THREE.Group(); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0x6b4a2f }));
+  t.position.y = 0.8; const l = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 0), new THREE.MeshStandardMaterial({ color: 0x3f8a46, flatShading: true })); l.position.y = 2.1;
+  tree.add(t, l); tree.position.set(x, 0, z); tree.traverse(o => o.castShadow = true); scene.add(tree); rocks.push({ x, z, r: 0.6 }); }
+const collide = (p, r) => { for (const o of rocks) { const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), m = o.r + r; if (d < m && d > 1e-4) { p.x = o.x + dx / d * m; p.z = o.z + dz / d * m; } } };
+const hero = createCharacter('human', { hat: 'cap', hatColor: 0xd2453a }); scene.add(hero.object3d);
+const ctl = thirdPerson({ character: hero, camera, dom: renderer.domElement, collide });
+addEventListener('keydown', e => { if (e.code === 'KeyE') hero.emote('wave'); });
+const me = () => hero.position;
+const npcs = [
+  [createCharacter('dog'), follow(me, { stopAt: 1.6 }), [3, 2]],
+  [createCharacter('cat'), flee(me, { radius: 5 }), [-4, -3]],
+  [createCharacter('knight'), patrol([{ x: 6, z: -6 }, { x: 12, z: -6 }, { x: 12, z: 2 }, { x: 6, z: 2 }]), [6, -6]],
+  [createCharacter('zombie'), chase(me, { run: false }), [-14, 10]],
+  [createCharacter('wizard'), wander({ center: { x: -6, z: 6 }, radius: 5 }), [-6, 6]],
+  [createCharacter('robot'), wander({ center: { x: 8, z: 8 }, radius: 6 }), [8, 8]],
+  [createCharacter('slime'), follow(me, { stopAt: 3 }), [2, 6]],
+  [createCharacter('bird'), flee(me, { radius: 4 }), [-2, 3]],
+];
+for (const [c, , [x, z]] of npcs) { c.position.set(x, 0, z); scene.add(c.object3d); }
+let caught = 0;
+loop(dt => {
+  ctl.update(dt);
+  for (const [c, brain] of npcs) {
+    const m = brain.act(c.position); c.move(m.x, m.z, dt, { run: m.run }); collide(c.position, 0.3);
+    if (c.kind === 'zombie' && c.position.distanceTo(hero.position) < 0.8 && hero.state !== 'fall') { hero.knockDown(1.5); c.say('Braaains', 2); c.position.x -= 3; }
+    if (c.kind === 'dog' && c.position.distanceTo(hero.position) < 2.2 && hero.state === 'wave' && c.state !== 'wave') c.emote('wave');
+    c.update(dt);
+  }
+});
+</script></body></html>

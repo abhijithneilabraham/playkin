@@ -1,0 +1,17 @@
+{
+  "name": "playkin",
+  "version": "0.1.0",
+  "description": "Drop-in 3D game characters for three.js, with a separate reinforcement-learning module for their brains.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./rl": "./src/rl/index.js"
+  },
+  "files": ["src", "README.md", "AGENTS.md", "llms.txt", "LICENSE"],
+  "scripts": { "test": "node --test test/*.test.js" },
+  "peerDependencies": { "three": ">=0.155.0" },
+  "peerDependenciesMeta": { "three": { "optional": true } },
+  "keywords": ["three.js", "game", "characters", "npc", "procedural animation", "reinforcement learning", "q-learning", "ppo", "vibe coding"],
+  "license": "MIT"
+}

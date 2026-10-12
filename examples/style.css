@@ -1,0 +1,14 @@
+:root { --ink: #f4f1ea; --muted: #b8c2c8; --panel: rgba(16, 20, 26, 0.78); --line: rgba(255, 255, 255, 0.16); --accent: #ffb84d; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #10151a; color: var(--ink); font: 14px/1.45 "Atkinson Hyperlegible", system-ui, sans-serif; }
+canvas { display: block; touch-action: none; }
+.hud { position: fixed; left: 16px; top: 16px; max-width: min(420px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; backdrop-filter: blur(6px); }
+.hud h1 { margin: 0; font: 700 1.2rem/1.2 "Chakra Petch", system-ui, sans-serif; letter-spacing: .02em; }
+.hud p { margin: 0; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+button { font: 600 .85rem "Chakra Petch", system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,.07); border: 1px solid var(--line); border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+button:hover { background: rgba(255,255,255,.14); } button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--ink); color: #12161b; }
+a { color: var(--accent); }
+kbd { font: 500 .75rem ui-monospace, Menlo, monospace; border: 1px solid currentColor; border-radius: 3px; padding: 0 4px; opacity: .8; }
+.stat { font: 500 1rem ui-monospace, Menlo, monospace; }

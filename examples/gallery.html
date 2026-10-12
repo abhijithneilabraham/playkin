@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "playkin": "../src/index.js", "playkin/rl": "../src/rl/index.js" } }</script>
+<title>playkin gallery</title></head><body>
+<div class="hud">
+  <h1>playkin gallery</h1>
+  <p>Every built-in character. Pick an animation, or roll a random crowd. Click a character to say hello. Drag to look around.</p>
+  <div class="row" id="clips"></div>
+  <div class="row"><button id="kinds" aria-pressed="true">All kinds</button><button id="crowd">Random crowd</button><a href="./">Examples</a></div>
+</div>
+<script type="module">
+import { stage } from './stage.js';
+import { createCharacter, randomCharacter, listKinds, CLIPS } from 'playkin';
+const { THREE, scene, camera, renderer, loop } = stage();
+let people = [];
+function layout(list) {
+  people.forEach(c => c.dispose()); people = list;
+  const cols = Math.ceil(Math.sqrt(list.length * 1.6));
+  list.forEach((c, i) => { c.position.set((i % cols - (cols - 1) / 2) * 2.2, 0, Math.floor(i / cols) * -2.4); c.faceDirection(0, 1); scene.add(c.object3d); });
+}
+const showKinds = () => layout(listKinds().map(k => createCharacter(k.kind, { name: k.kind })));
+showKinds();
+for (const clip of CLIPS) { const b = document.createElement('button'); b.textContent = clip; b.onclick = () => people.forEach(c => { c.auto = clip === 'idle'; c.play(clip); if (clip === 'fall') c.knockDown(2.5); }); document.getElementById('clips').append(b); }
+document.getElementById('kinds').onclick = showKinds;
+document.getElementById('crowd').onclick = () => layout(Array.from({ length: 16 }, (_, i) => randomCharacter(Date.now() + i)));
+// orbit + click to greet
+let yaw = 0, pitch = 0.3, dist = 13, drag = null, moved = 0;
+renderer.domElement.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; moved = 0; });
+addEventListener('pointermove', e => { if (!drag) return; yaw -= (e.clientX - drag[0]) * 0.005; pitch = Math.max(0.05, Math.min(1.2, pitch + (e.clientY - drag[1]) * 0.004)); moved += Math.abs(e.clientX - drag[0]); drag = [e.clientX, e.clientY]; });
+addEventListener('pointerup', e => { if (drag && moved < 5) { const r = new THREE.Raycaster(); r.setFromCamera(new THREE.Vector2(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1), camera);
+  const hit = r.intersectObjects(people.map(p => p.object3d), true)[0]; let o = hit && hit.object; while (o && !o.userData.character) o = o.parent;
+  if (o) { const c = o.userData.character; c.say(['Hi!', 'Hello there', 'Nice day', 'Woof', 'Beep boop'][Math.floor(Math.random() * 5)]); c.emote('wave'); } } drag = null; });
+addEventListener('wheel', e => { dist = Math.max(4, Math.min(40, dist * (1 + e.deltaY * 0.001))); });
+loop(dt => { for (const c of people) c.update(dt); camera.position.set(Math.sin(yaw) * Math.cos(pitch) * dist, 1 + Math.sin(pitch) * dist, -3 + Math.cos(yaw) * Math.cos(pitch) * dist); camera.lookAt(0, 0.8, -3); });
+</script></body></html>
