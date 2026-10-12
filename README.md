@@ -7,7 +7,7 @@ Drop-in 3D game characters for three.js, with brains.
 - **One API for all of them.** `move`, `update`, `emote`, `say`, `carry`, `knockDown`.
 - **A separate RL module (`playkin/rl`).** Steering behaviours that need no training, plus Q-learning, soft (energy-based) Q-learning, PPO and self-play with an opponent pool. It has no dependencies and runs in the browser or Node.
 
-**Live examples:** https://abhijithneilabraham.github.io/playkin/examples/
+**Live examples:** https://abneil.dev/playkin/examples/
 
 ## Thirty seconds to a character
 
